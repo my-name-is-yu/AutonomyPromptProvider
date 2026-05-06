@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 skill_file="$repo_root/issue-autonomy-prompt/SKILL.md"
+pr_skill_file="$repo_root/pr-batch-check-merge-prompt/SKILL.md"
 
 fail() {
   printf 'check-skill: %s\n' "$1" >&2
@@ -10,9 +11,13 @@ fail() {
 }
 
 [[ -f "$skill_file" ]] || fail "missing issue-autonomy-prompt/SKILL.md"
+[[ -f "$pr_skill_file" ]] || fail "missing pr-batch-check-merge-prompt/SKILL.md"
 
 grep -q '^name: issue-autonomy-prompt$' "$skill_file" \
   || fail "missing expected skill name"
+
+grep -q '^name: pr-batch-check-merge-prompt$' "$pr_skill_file" \
+  || fail "missing expected PR skill name"
 
 grep -q 'Default worktree strategy' "$skill_file" \
   || fail "missing worktree strategy section"
@@ -21,7 +26,30 @@ grep -q 'Only when creating a new `<BATCH_WORKTREE_PATH>`' "$skill_file" \
   || fail "worktree creation must be conditional"
 
 grep -q 'Merge only if the user explicitly requested merge authority' "$skill_file" \
-  || fail "merge authority must be explicit"
+  && fail "implementation skill must not merge"
+
+grep -q 'Do not merge PRs in this implementation session' "$skill_file" \
+  || fail "implementation skill must stop before merge"
+
+grep -q 'stacked PR checks are provisional' "$skill_file" \
+  || fail "implementation skill must preserve stacked PR check caveat"
+
+grep -q '^````md$' "$skill_file" \
+  || fail "issue prompt template must use four-backtick fence for nested handoff"
+
+grep -q 'Merge authority must be explicit' "$pr_skill_file" \
+  || fail "PR skill must require explicit merge authority"
+
+grep -q 'Do not merge a dependent PR solely because it passed against a prerequisite' "$pr_skill_file" \
+  || fail "PR skill must handle stacked PR provisional checks"
+
+grep -q 'Do not include merge commands in' "$pr_skill_file" \
+  || fail "PR skill must omit merge commands when authority is absent"
+
+merge_cmd='gh pr mer''ge'
+if grep -RIn "$merge_cmd" "$repo_root"; then
+  fail "found hard-coded merge command"
+fi
 
 old_skill="github-issue-autonomy-""planner"
 product_name="Pul""Seed"

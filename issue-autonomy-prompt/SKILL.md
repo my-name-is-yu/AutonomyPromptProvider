@@ -112,13 +112,16 @@ Include:
   - `gh issue list --state open --limit 100`
 - target issue list and recommended order
 - prerequisites and dependency notes
+- execution mode for each issue: independent PR, stacked PR, bundled PR, or
+  blocked until prerequisite PR merge
 - implementation rules
 - per-issue workflow
 - verification commands
 - review-agent requirement for substantive changes
-- PR and merge policy
+- PR and handoff policy
 - safety/approval constraints
 - status-file path
+- PR batch check/merge handoff prompt
 - final-report format
 
 Default status file:
@@ -153,11 +156,37 @@ Default worktree strategy:
   user-named dependency PRs, include `gh pr list --state open --limit 50` in the
   startup checks and before each issue starts.
 
+Execution modes:
+
+- `independent PR`: start from `origin/<default-branch>`, open the PR against
+  the default branch, and stop after ready PR creation and check inspection.
+- `stacked PR`: use when a later issue needs code from an earlier unmerged PR.
+  Branch the dependent issue from the prerequisite issue branch, open the
+  dependent PR against that prerequisite branch, mark checks as provisional
+  until the stack is replayed onto the default branch, and include the stack
+  order in the handoff prompt.
+- `bundled PR`: use only when separate PRs would knowingly create broken
+  intermediate states, duplicate the same migration/schema/test-fixture change,
+  or split one acceptance path that cannot be meaningfully separated. The PR
+  body must close every bundled issue and explain why bundling was required.
+- `blocked until prerequisite PR merge`: use when an issue cannot safely be
+  implemented from an unmerged prerequisite branch or stacked without creating
+  misleading checks, excessive conflicts, or unclear ownership.
+
+The generated implementation prompt should never tell the implementation
+session to merge PRs, close issues manually, or mutate PR base branches after
+handoff unless the user explicitly asks for that in the implementation run.
+Merge execution belongs in a separate PR batch check/merge session.
+
+At the end of the generated implementation prompt, include a paste-ready
+handoff prompt for a PR batch check/merge session. If a companion skill named
+`pr-batch-check-merge-prompt` is installed, tell the next session to use it.
+
 ## Prompt Template
 
 Use this template and fill in repository-specific details.
 
-```md
+````md
 Create a separate worktree from `<BASE_REPO_PATH>`, then implement the
 following open issues in order.
 
@@ -182,6 +211,13 @@ Startup steps:
   - #<N3>: <title>
   - #<N4>: <title>
   - #<N5>: <title>
+- Execution plan:
+  - #<N1>: independent PR | stacked PR on #<N0> | bundled PR with #<N2> |
+    blocked until prerequisite PR merge
+  - #<N2>: <execution mode and base/dependency notes>
+  - #<N3>: <execution mode and base/dependency notes>
+  - #<N4>: <execution mode and base/dependency notes>
+  - #<N5>: <execution mode and base/dependency notes>
 - If a target issue is already closed, skip it and record the reason in the
   status file.
 - If related new open issues appear, prioritize completing this target issue
@@ -194,9 +230,22 @@ Core policy:
   into one large PR.
 - Work serially inside one batch worktree. Do not implement multiple issues in
   parallel.
-- Before each issue, run
+- Choose the execution mode before starting each issue:
+  - independent PR
+  - stacked PR
+  - bundled PR
+  - blocked until prerequisite PR merge
+- For independent PRs, run
   `git fetch origin && git switch --detach origin/<DEFAULT_BRANCH>`, then create
   the issue branch with `git switch -c codex/issue-<number>-<short-name>`.
+- For stacked PRs, branch from the prerequisite issue branch, open the dependent
+  PR against that prerequisite branch, and record the stack order. Do not treat
+  checks against a prerequisite branch as final default-branch readiness.
+- Use bundled PRs only when separate PRs would create knowingly broken
+  intermediate states, duplicate the same migration/schema/test-fixture change,
+  or split one acceptance path that cannot be meaningfully separated.
+- If neither independent nor stacked execution is safe, mark the issue blocked
+  until the prerequisite PR merges.
 - If related open PRs or parallel batches exist, run
   `gh pr list --state open --limit 50` before each issue. If a conflict is
   likely, record it in `<STATUS_FILE>` and reorder the issue sequence.
@@ -216,66 +265,93 @@ Core policy:
 - After substantive changes, get an independent review pass if the environment
   supports it, focused only on material issues.
 - Address material findings and re-run validation.
-- Merge only if the user explicitly requested merge authority for this run. If
-  merge authority was not explicit, stop after ready PR creation and CI/check
-  inspection.
+- Do not merge PRs in this implementation session.
+- Do not close issues manually.
+- Do not mutate PR base branches after handoff unless the user explicitly asks
+  for that in this implementation session.
 - Record decisions, remaining work, and blockers in `<STATUS_FILE>` throughout
   the run.
 
 Recommended implementation order:
 1. #<N1>
+   - Execution mode: <independent PR | stacked PR | bundled PR | blocked>
+   - Base/dependency: <default branch | prerequisite branch/PR | bundled issues>
    - <expected implementation direction>
    - <important acceptance criteria>
 
 2. #<N2>
+   - Execution mode: <independent PR | stacked PR | bundled PR | blocked>
+   - Base/dependency: <default branch | prerequisite branch/PR | bundled issues>
    - <expected implementation direction>
    - <important acceptance criteria>
 
 3. #<N3>
+   - Execution mode: <independent PR | stacked PR | bundled PR | blocked>
+   - Base/dependency: <default branch | prerequisite branch/PR | bundled issues>
    - <expected implementation direction>
    - <important acceptance criteria>
 
 4. #<N4>
+   - Execution mode: <independent PR | stacked PR | bundled PR | blocked>
+   - Base/dependency: <default branch | prerequisite branch/PR | bundled issues>
    - <expected implementation direction>
    - <important acceptance criteria>
 
 5. #<N5>
+   - Execution mode: <independent PR | stacked PR | bundled PR | blocked>
+   - Base/dependency: <default branch | prerequisite branch/PR | bundled issues>
    - <expected implementation direction>
    - <important acceptance criteria>
 
 Per-issue workflow:
-1. `git fetch origin && git switch --detach origin/<DEFAULT_BRANCH>`
+1. Confirm the issue's execution mode and write it to `<STATUS_FILE>`.
 2. Read the issue body and acceptance criteria with `gh issue view <number>`.
-3. If related open PRs or parallel batches exist, run
+3. If the mode is `blocked until prerequisite PR merge`, do not implement it.
+   Record the blocker, prerequisite PR, and resume condition in `<STATUS_FILE>`,
+   then move to the next issue.
+4. If related open PRs or parallel batches exist, run
    `gh pr list --state open --limit 50`.
-4. Trace the relevant code with `rg`. If broad exploration is needed, delegate
+5. Prepare the branch:
+   - For an independent PR, run
+     `git fetch origin && git switch --detach origin/<DEFAULT_BRANCH>`, then
+     create the branch with
+     `git switch -c codex/issue-<number>-<short-name>`.
+   - For a stacked PR, fetch and switch to the prerequisite issue branch, verify
+     it is the intended base, then create the dependent branch from it. Open the
+     dependent PR against the prerequisite branch, not the default branch.
+   - For a bundled PR, create one branch for the bundled issue set and record
+     every included issue before editing.
+6. Trace the relevant code with `rg`. If broad exploration is needed, delegate
    it to an explorer if the environment supports that.
-5. Write a short implementation plan to `<STATUS_FILE>`.
-6. Create the branch with `git switch -c codex/issue-<number>-<short-name>`.
-7. Implement the fix.
-8. Add or update tests. Follow the repository's local instructions, and prefer
+7. Write a short implementation plan to `<STATUS_FILE>`.
+8. Implement the fix.
+9. Add or update tests. Follow the repository's local instructions, and prefer
    production entrypoints and boundary-level contract tests when relevant.
-9. Run the repository's standard validation commands. Include relevant focused
+10. Run the repository's standard validation commands. Include relevant focused
    tests. If present and appropriate, run commands such as:
    - `npm run typecheck`
    - `npm test -- <focused-test>`
    - `npm run lint`
    - `npm run test:changed`
-10. Get an independent review pass if the environment supports it, focused only
+11. Get an independent review pass if the environment supports it, focused only
     on material issues.
-11. Address material findings and re-run validation.
-12. Commit, push, and open a ready PR.
-13. The PR body must include:
-   - `Closes #<number>`
+12. Address material findings and re-run validation.
+13. Commit, push, and open a ready PR.
+14. The PR body must include:
+   - `Closes #<number>` or every `Closes #<number>` line for a bundled PR
    - implementation summary
    - validation commands
    - known unresolved risks
+   - execution mode
+   - base branch and stack order for stacked PRs
    - dependency or integration status for related PRs or parallel batches
-14. Inspect CI/checks with `gh pr checks --watch` when available.
-15. If merge authority was explicit, CI/checks are green, and review is clear,
-    merge with `gh pr merge --squash --delete-branch`.
-16. Before moving to the next issue, return to the latest base with
-    `git fetch origin && git switch --detach origin/<DEFAULT_BRANCH>`.
+   - a note that stacked PR checks are provisional until replayed onto the
+     default branch after prerequisite merges
+15. Inspect CI/checks with `gh pr checks --watch` when available.
+16. Do not merge. Do not close issues manually. Do not retarget PR base branches
+    after handoff unless explicitly asked.
+17. Before moving to the next issue, return to the base required by the next
+    issue's execution mode.
 
 Autonomous judgment:
 - If CI fails, read the logs and fix the failure. If you conclude it is an
@@ -298,13 +374,40 @@ Autonomous judgment:
   `<STATUS_FILE>` before editing.
 
 Final report:
-- PRs opened and merged
-- issues closed, and issues left open with reasons
+- PRs opened
+- stacked PR order, if any
+- bundled PR groups, if any
+- issues linked by PRs, and issues left without PRs with reasons
 - validation commands run
 - CI/check results
 - follow-up issues
 - items needing human judgment
+- PR batch check/merge handoff prompt
+
+PR batch check/merge handoff prompt:
+
+```text
+Use `pr-batch-check-merge-prompt` if it is installed.
+
+Repository: <BASE_REPO_PATH>
+Default branch: <DEFAULT_BRANCH>
+Implementation status file: <STATUS_FILE>
+
+Review these PRs in dependency order:
+- <PR number>: <title> | mode: independent | base: <branch>
+- <PR number>: <title> | mode: stacked | base: <prerequisite branch> |
+  depends on: <PR number>
+- <PR number>: <title> | mode: bundled | closes: <issues>
+
+Check CI, review state, mergeability, conflicts, branch freshness,
+branch-protection or merge-queue requirements, and stack order. Treat checks
+for stacked PRs as provisional until their prerequisite PRs have merged and the
+dependent PR has been replayed onto the latest default branch.
+
+Do not merge anything unless the user explicitly grants merge authority for
+this PR batch check/merge run.
 ```
+````
 
 ## Output Requirements
 
@@ -312,6 +415,8 @@ Return:
 
 1. the ranked issue list
 2. the paste-ready autonomous development prompt
+3. a paste-ready PR batch check/merge handoff prompt, included at the end of the
+   autonomous development prompt
 
 If the user asks only for the prompt, still include a short ranking rationale before the prompt unless they explicitly request "prompt only".
 
@@ -319,4 +424,5 @@ If the user asks only for the prompt, still include a short ranking rationale be
 
 - Creating a prompt is not approval to perform dangerous actions.
 - The generated prompt must explicitly gate external publishing, submissions, secret transmission, production mutation, irreversible actions, and financial actions.
-- The generated prompt may allow coding, tests, PR creation, CI inspection, and merge when the user has requested autonomous development and the repository workflow supports it.
+- The generated implementation prompt may allow coding, tests, PR creation, and CI inspection when the user has requested autonomous development and the repository workflow supports it.
+- The generated implementation prompt must not merge PRs. PR merge execution belongs in a separate PR batch check/merge run with explicit merge authority.
