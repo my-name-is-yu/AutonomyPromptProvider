@@ -1,4 +1,4 @@
-# Issue Autonomy Prompt
+# Autonomy Prompt Provider
 
 A small Codex skill set for turning GitHub issue and PR queues into focused,
 paste-ready prompts for autonomous coding sessions.
