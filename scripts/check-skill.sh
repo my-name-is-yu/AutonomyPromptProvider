@@ -69,6 +69,15 @@ grep -q 'Do not create progress memo' "$skill_file" \
 grep -q 'Merge authority must be explicit' "$pr_skill_file" \
   || fail "PR skill must require explicit merge authority"
 
+grep -q 'explicit invocation of `pr-batch-check-merge` or "PR Batch Check Merge"' "$pr_skill_file" \
+  || fail "PR skill must treat skill invocation with target PRs as merge authority"
+
+grep -q 'Target PRs in dependency order' "$pr_skill_file" \
+  || fail "PR skill must recognize target PR dependency-order usage"
+
+grep -q 'Explicit negative wording wins' "$pr_skill_file" \
+  || fail "PR skill must let check-only requests override merge execution"
+
 grep -q 'Do not draft a prompt' "$pr_skill_file" \
   || fail "PR skill must execute rather than draft prompts"
 
@@ -124,8 +133,19 @@ grep -q 'Never use `--admin`' "$pr_skill_file" \
 grep -q 'authority for PRs classified `ready-to-merge`' "$pr_skill_file" \
   || fail "PR skill must define merge-run authority"
 
-grep -q 'Do not draft a prompt unless the user explicitly asks for a prompt' "$pr_skill_file" \
+grep -q 'Do not draft a prompt' "$pr_skill_file" \
   || fail "PR skill must avoid prompt-only behavior"
+
+grep -q 'PR Batch Check Merge' "$skill_file" \
+  || fail "issue handoff must invoke the PR merge skill by heading"
+
+grep -q 'Target PRs in dependency order' "$skill_file" \
+  || fail "issue handoff must use target PR dependency-order format"
+
+if grep -RIn 'Do not merge anything unless the user explicitly grants merge authority' \
+  "$skill_file" "$repo_root/examples"; then
+  fail "issue handoff should not require extra merge wording after invoking merge skill"
+fi
 
 if grep -RIn "$merge_cmd" README.md examples; then
   fail "README/examples should not hard-code merge execution"

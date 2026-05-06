@@ -289,8 +289,9 @@ PR readiness manifest:
 ```
 
 At the end of the generated implementation prompt, include a paste-ready
-handoff block for a PR batch check/merge run. If a companion skill named
-`pr-batch-check-merge` is installed, tell the user or next session to use it.
+handoff block for a PR batch check/merge run. The block should use the heading
+`PR Batch Check Merge`, because sending that block to a separate session is
+merge authority for safe PRs unless the user adds check-only or dry-run wording.
 
 ## Prompt Template
 
@@ -542,7 +543,12 @@ Final report:
 PR batch check/merge handoff block:
 
 ```text
+PR Batch Check Merge
+
 Use `pr-batch-check-merge` if it is installed.
+This handoff invokes the merge skill. Unless the user adds check-only, dry-run,
+or do-not-merge wording, check live PR state and merge or queue only PRs that
+satisfy every gate.
 
 Repository: <BASE_REPO_PATH>
 Default branch: <DEFAULT_BRANCH>
@@ -569,7 +575,7 @@ PR readiness manifest:
   human_action_required: <true | false>
   next_action: <check-merge | replay-then-check | fix | wait | human-review>
 
-Review these PRs in dependency order:
+Target PRs in dependency order:
 - <PR number>: <title> | mode: independent | base: <branch>
 - <PR number>: <title> | mode: stacked | base: <prerequisite branch> |
   depends on: <PR number>
@@ -580,10 +586,8 @@ branch-protection or merge-queue requirements, and stack order. Treat checks
 for stacked PRs as provisional until their prerequisite PRs have merged and the
 dependent PR has been replayed onto the latest default branch.
 
-Do not merge anything unless the user explicitly grants merge authority for
-this PR batch check/merge run. If merge authority is granted, the
-`pr-batch-check-merge` skill should execute the live PR checks and merge or
-queue only PRs that satisfy every gate.
+If a PR is not safe, leave it unmerged and report the blocker. Explicit
+check-only, dry-run, or do-not-merge wording overrides merge execution.
 ```
 ````
 

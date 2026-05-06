@@ -9,7 +9,8 @@ It contains two companion skills:
 - `issue-autonomy-prompt`: ranks open issues and drafts an implementation prompt
   that opens ready PRs without merging them.
 - `pr-batch-check-merge`: checks live PR state and merges or queues PRs that
-  satisfy every gate when merge authority is explicit.
+  satisfy every gate when the skill is invoked for a target PR batch, unless
+  the user asks for check-only behavior.
 
 The issue skill helps a coding agent:
 
@@ -32,8 +33,8 @@ The PR skill helps a coding agent:
   order, merge queue state, and mergeability
 - treat stacked PR checks as provisional until replayed onto the default branch
 - treat unknown required gates as blocking
-- merge or queue PRs classified as safe when the user explicitly asks for a
-  merge run
+- merge or queue PRs classified as safe when the user invokes the PR merge skill
+  for a target batch
 
 ## Install
 
@@ -70,8 +71,12 @@ After the implementation session opens PRs, use `pr-batch-check-merge` to
 check the PR queue and merge the safe PRs:
 
 ```text
-Use pr-batch-check-merge for these PRs. Check CI, reviews, conflicts, stack
-order, and mergeability. Merge the PRs that are safe.
+PR Batch Check Merge
+
+Target PRs in dependency order:
+1. #1194 for #1183, independent, base main
+2. #1196 for #1180, stacked on #1194
+3. #1197 for #1179, independent, base main
 ```
 
 ## Safety Defaults

@@ -1,13 +1,14 @@
 ---
 name: pr-batch-check-merge
-description: Inspect a batch of GitHub pull requests, determine safe merge order, execute merges or merge-queue enqueue for PRs that satisfy all gates when the user explicitly asks to merge, and report blockers. Use when the user wants to review, validate, queue, or merge multiple PRs after an autonomous implementation run.
+description: Inspect a batch of GitHub pull requests, determine safe merge order, execute merges or merge-queue enqueue for PRs that satisfy all gates when the user invokes this merge skill or otherwise asks to merge, and report blockers. Use when the user wants to review, validate, queue, or merge multiple PRs after an autonomous implementation run.
 ---
 
 # PR Batch Check/Merge
 
-Check the live PR queue in the current session. If the user explicitly asked
-to merge safe PRs, merge or enqueue the PRs that satisfy every required gate.
-Do not draft a prompt unless the user explicitly asks for a prompt.
+Check the live PR queue in the current session. If this skill was invoked for a
+target PR batch, merge or enqueue the PRs that satisfy every required gate
+unless the user explicitly asked for check-only behavior. Do not draft a prompt
+unless the user explicitly asks for a prompt.
 
 Use this skill when the user wants:
 
@@ -35,12 +36,18 @@ Always refresh live PR state immediately before merging or enqueueing a PR.
 
 ## Safety Boundary
 
-Merge authority must be explicit in the current user request. Treat requests
-such as "check and merge these PRs" or "merge the PRs that are safe" as merge
-authority for PRs classified `ready-to-merge`. This is merge authority for PRs
-classified `ready-to-merge`; it is not authority for blocked or unknown PRs. If
-the user asks only to check, review, summarize, or prepare a prompt, stop after
-classification and report.
+Merge authority must be explicit in the current user request. Treat any of the
+following as merge authority for PRs classified `ready-to-merge`:
+
+- direct wording such as "check and merge these PRs" or "merge the PRs that are
+  safe"
+- explicit invocation of `pr-batch-check-merge` or "PR Batch Check Merge" with
+  target PRs, including a block like "Target PRs in dependency order"
+
+This is merge authority for PRs classified `ready-to-merge`; it is not
+authority for blocked or unknown PRs. Explicit negative wording wins: if the
+user asks to check only, review only, summarize only, dry-run, prepare a prompt,
+or not merge, stop after classification and report.
 
 Never use `--admin`, bypass a merge queue, force-push, delete non-PR branches,
 or merge a PR with unknown required gates.

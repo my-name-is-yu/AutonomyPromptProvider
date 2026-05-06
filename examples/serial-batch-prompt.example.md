@@ -94,12 +94,17 @@ PR readiness manifest:
 PR batch check/merge handoff block:
 
 ```text
+PR Batch Check Merge
+
 Use `pr-batch-check-merge` if it is installed.
+This handoff invokes the merge skill. Unless the user adds check-only, dry-run,
+or do-not-merge wording, check live PR state and merge or queue only PRs that
+satisfy every gate.
 
 Repository: /path/to/repo
 Default branch: main
 
-Review these PRs in dependency order:
+Target PRs in dependency order:
 - #201: example first issue | mode: independent | base: main
 - #202: example second issue | mode: stacked | base: codex/issue-123-example |
   depends on: #201
@@ -109,8 +114,6 @@ Check CI, review state, conflicts, stack order, and mergeability. Treat checks
 for stacked PRs as provisional until the dependent PR is replayed onto the
 latest default branch after prerequisite merges.
 
-Do not merge anything unless the user explicitly grants merge authority for
-this PR batch check/merge run. If merge authority is granted,
-`pr-batch-check-merge` should execute the live checks and merge or queue only
-PRs that satisfy every gate.
+If a PR is not safe, leave it unmerged and report the blocker. Explicit
+check-only, dry-run, or do-not-merge wording overrides merge execution.
 ```
