@@ -67,7 +67,8 @@ Rank by these factors, in order:
 2. **Runtime safety**: Does it prevent data loss, unsafe stops, runaway loops, or irreversible actions?
 3. **Observability**: Does it make future progress, health, or quality measurable?
 4. **Dogfood evidence**: Was the issue seen in a real run, CI failure, or user-observed workflow?
-5. **Acceptance clarity**: Can a focused vertical slice satisfy the issue without broad redesign?
+5. **Acceptance clarity**: Can a focused, architecture-respecting slice satisfy
+   the issue without unrelated broad redesign?
 6. **Dependency order**: Does another target issue explicitly depend on this one?
 7. **User goal fit**: Does it match the user's current stated direction?
 
@@ -180,6 +181,7 @@ Include:
 - per-issue workflow
 - verification commands
 - review-agent requirement for substantive changes
+- implementation philosophy
 - PR and handoff policy
 - safety/approval constraints
 - PR readiness manifest contract
@@ -226,6 +228,22 @@ Risk lane usage:
 - `external-io-secrets`: serialize; gate external calls and secret handling.
 - `runtime-state`: serialize; verify state transitions and recovery paths.
 - `release-deploy`: block or require explicit release/deploy authority.
+
+Implementation philosophy:
+
+- Do not optimize for the smallest possible diff. Optimize for the best final
+  architecture, correctness, maintainability, and testability.
+- Small diffs are preferred only when they do not compromise the design.
+- If the existing structure is misaligned with the intended architecture,
+  refactor it instead of adding compatibility layers or patching around it.
+- Avoid preserving bad abstractions just to reduce patch size.
+- When a broad change is appropriate, require the implementation session to
+  first explain the target design and why the broader change is justified.
+- Separate mechanical refactors from behavior changes when possible.
+- Preserve existing behavior unless the task explicitly changes it.
+- Add or update tests around affected behavior.
+- Run lint, typecheck, and relevant tests when available.
+- Summarize important architectural changes after implementation.
 
 Execution modes:
 
@@ -376,13 +394,23 @@ Core policy:
   likely, include the conflict in the final report and reorder the issue
   sequence.
 - Respect dependencies. <dependency notes>
-- Implement the smallest sufficient vertical slice that satisfies each issue's
-  acceptance criteria.
+- Implement the smallest architecture-respecting vertical slice that satisfies
+  each issue's acceptance criteria. Do not shrink the patch by preserving a bad
+  abstraction or adding compatibility layers around a misaligned design.
 - If an issue is an umbrella issue, split or draft child issues before
   implementation. Prefer one acceptance path and one primary risk surface per
   child. Do not split a migration, schema transition, shared protocol, or
   cross-cutting contract if that split would hide the real review boundary.
-- Do not include unrelated cleanup, broad redesign, or opportunistic fixes.
+- Do not include unrelated cleanup or opportunistic fixes. Avoid broad redesign
+  when it is unrelated to the issue, but refactor when the existing structure is
+  misaligned with the target architecture.
+- Do not optimize for the smallest possible diff. Optimize for the best final
+  architecture, correctness, maintainability, and testability. Small diffs are
+  preferred only when they do not compromise the design.
+- When a broad change is appropriate, first explain the target design and why
+  the broader change is justified.
+- Separate mechanical refactors from behavior changes when possible.
+- Preserve existing behavior unless the task explicitly changes it.
 - For user intent, natural language, runtime state, safety decisions, target
   selection, and workflow semantics, do not ship short-term keyword lists,
   regular expressions, string includes, or title matching as the primary
@@ -473,7 +501,10 @@ Per-issue workflow:
    it.
 7. Trace the relevant code with `rg`. If broad exploration is needed, delegate
    it to an explorer if the environment supports that.
-8. State a short implementation plan in the session before editing.
+8. State a short implementation plan in the session before editing. If the
+   right solution requires broader refactoring, first explain the target design,
+   why the broader change is justified, and how mechanical refactors will be
+   separated from behavior changes where possible.
 9. Implement the fix.
 10. Add or update tests. Follow the repository's local instructions, and prefer
    production entrypoints and boundary-level contract tests when relevant.
@@ -512,9 +543,9 @@ Autonomous judgment:
   external flaky failure, include evidence in the final report and PR comment.
 - Resolve merge conflicts by fetching `origin/<DEFAULT_BRANCH>` and rebasing or
   merging the current issue branch as appropriate.
-- If acceptance criteria are too broad, prefer the smallest useful vertical
-  slice and create follow-up issues for the rest. Do not silently ignore
-  acceptance criteria.
+- If acceptance criteria are too broad, prefer the smallest useful
+  architecture-respecting slice and create follow-up issues for the rest. Do
+  not silently ignore acceptance criteria.
 - If an implementation idea relies on keyword, regex, or string-includes
   classification as the primary decision mechanism, do not use it. First look
   for an existing typed API, schema, state model, model or LLM classifier, or
@@ -530,6 +561,7 @@ Autonomous judgment:
 Final report:
 - PRs opened
 - PR readiness manifest
+- important architectural changes
 - risk lanes and parallel lanes used
 - stacked PR order, if any
 - bundled PR groups, if any

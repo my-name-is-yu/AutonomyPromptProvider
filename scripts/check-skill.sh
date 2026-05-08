@@ -66,6 +66,27 @@ fi
 grep -q 'Do not create progress memo' "$skill_file" \
   || fail "implementation skill must forbid progress memo files"
 
+grep -q 'Do not optimize for the smallest possible diff' "$skill_file" \
+  || fail "implementation skill must include architecture-first philosophy"
+
+grep -q 'refactor it instead of adding compatibility layers or patching around it' "$skill_file" \
+  || fail "implementation skill must prefer refactor over compatibility patches"
+
+grep -q 'Separate mechanical refactors from behavior changes' "$skill_file" \
+  || fail "implementation skill must separate refactors from behavior changes"
+
+grep -q 'Preserve existing behavior unless the task explicitly changes it' "$skill_file" \
+  || fail "implementation skill must preserve behavior by default"
+
+grep -q 'Add or update tests around affected behavior' "$skill_file" \
+  || fail "implementation skill must require tests around affected behavior"
+
+grep -q 'Run lint, typecheck, and relevant tests' "$skill_file" \
+  || fail "implementation skill must require lint typecheck and relevant tests"
+
+grep -q 'important architectural changes' "$skill_file" \
+  || fail "implementation skill final report must include architectural changes"
+
 grep -q 'Merge authority must be explicit' "$pr_skill_file" \
   || fail "PR skill must require explicit merge authority"
 

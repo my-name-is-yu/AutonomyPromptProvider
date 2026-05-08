@@ -18,6 +18,8 @@ The issue skill helps a coding agent:
 - rank issues by dependency, risk, and leverage
 - create a bounded batch plan
 - draft a prompt that starts from a clean worktree
+- prefer sound architecture, correctness, maintainability, and testability over
+  the smallest possible diff
 - classify risk lanes and parallel-safe lanes
 - decompose umbrella issues before implementation
 - choose independent, stacked, bundled, or blocked execution modes

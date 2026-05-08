@@ -38,6 +38,14 @@ Core policy:
 - Do not merge PRs in the implementation session.
 - Do not create progress memo files just to track the run. Put durable handoff
   state in PR bodies, the PR readiness manifest, and the final report.
+- Do not optimize for the smallest possible diff. Optimize for the best final
+  architecture, correctness, maintainability, and testability.
+- If the existing structure is misaligned with the intended architecture,
+  refactor it instead of adding compatibility layers or patching around it.
+- When a broader change is appropriate, first explain the target design and why
+  the broader change is justified, separate mechanical refactors from behavior
+  changes when possible, preserve existing behavior unless explicitly changed,
+  update tests, and summarize the architectural changes in the final report.
 
 Per-issue workflow:
 
